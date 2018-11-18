@@ -145,22 +145,15 @@ def viterbi_algorithm(sequence):
     for t in range(1,T):
         word_id = sequence[t]
         for s in range(len_tags):
-            temp = []
-            temp2 = []
-            for s_ in range(len_tags):
-                temp.append(viterbi[s_][t-1]*transition_matrix[s_][s]*observation_matrix[word_id][s])
-                temp2.append(viterbi[s_][t-1]*transition_matrix[s_][s])
-            
+            temp = [viterbi[s_][t-1]*transition_matrix[s_][s]*observation_matrix[word_id][s] for s_ in range(len_tags)]
+            temp2 = [viterbi[s_][t-1]*transition_matrix[s_][s] for s_ in range(len_tags)]
+
             index, value = max(enumerate(temp2), key=operator.itemgetter(1))
             viterbi[s][t] = max(temp)
             backpointer[s][t] = index
         
-    temp2 = []
-    for s_ in range(len_tags):
-        temp2.append(viterbi[s_][T-1]*transition_matrix[s_][len_tags])
-    
-    
-    index, value = max(enumerate(temp2), key=operator.itemgetter(1))        
+    temp = [viterbi[s_][T-1]*transition_matrix[s_][len_tags] for s_ in range(len_tags)]
+    index, value = max(enumerate(temp), key=operator.itemgetter(1))        
 
     # len_tag+1 means the end node of the graph
     viterbi[len_tags+1][T] = value
@@ -203,7 +196,7 @@ get_example(input_file)
 
 #%%    
 
-
+# X_train, X_test = train_test_split(pre_sentence, test_size=0.1, random_state=42)
 
 
 
