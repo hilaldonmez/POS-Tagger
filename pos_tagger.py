@@ -134,7 +134,7 @@ def viterbi_algorithm(sequence):
     word_id = sequence[0] # word_id  = id of the first word
     
     viterbi = np.zeros((len_tags+2,T+1))
-    backpointer = np.zeros((len_tags+2,T+1))
+    backpointer = np.zeros((len_tags+2,T+1), dtype=np.int)
     
     # start state is full
     # -1 means the start state(node) in backpointer
@@ -158,8 +158,6 @@ def viterbi_algorithm(sequence):
     # len_tag+1 means the end node of the graph
     viterbi[len_tags+1][T] = value
     backpointer[len_tags+1][T] = index
-    backpointer = np.int64(backpointer)
-
 
     return viterbi , backpointer
 
