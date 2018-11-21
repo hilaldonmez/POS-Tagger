@@ -104,19 +104,16 @@ def create_matrices(pre_sentence, len_tags, len_words, apply_smoothing=True):
     
     count_observation = observation_matrix.copy()
     count_transition = transition_matrix.copy()
-    if apply_smoothing:
-        smoothed_count_observation = [[(element + 1) for element in vector] for vector in count_observation]
-        smoothed_count_transition = [[(element + 1) for element in vector] for vector in count_transition]
-
-    # convert probability matrix  
-    if apply_smoothing:
-        smoothed_observation_matrix = smoothed_count_observation / np.sum(smoothed_count_observation, axis=0)
-        smoothed_transition_matrix = smoothed_count_transition / np.sum(smoothed_count_transition, axis=1).reshape((len_tags+1, 1))
-        return smoothed_transition_matrix, smoothed_observation_matrix, count_observation, count_transition
     
     observation_matrix = observation_matrix / np.sum(observation_matrix, axis=0)
-    transition_matrix = transition_matrix / np.sum(transition_matrix, axis=1).reshape((len_tags+1, 1))
-
+    
+    if not apply_smoothing:
+        transition_matrix = transition_matrix / np.sum(transition_matrix, axis=1).reshape((len_tags+1, 1))
+    else:  
+        smoothed_count_transition = [[(element + 1) for element in vector] for vector in count_transition]
+        smoothed_transition_matrix = smoothed_count_transition / (np.sum(smoothed_count_transition, axis=1).reshape((len_tags+1, 1)) + len_tags*len_tags)
+        return smoothed_transition_matrix, observation_matrix, count_observation, smoothed_count_transition
+    
     return transition_matrix, observation_matrix, count_observation, count_transition
 
 def generate_unknown_prob(observation_matrix, len_tags):
@@ -149,22 +146,21 @@ def viterbi_algorithm(sequence, len_tags, transition_matrix, observation_matrix,
     # start state is full
     # -1 means the start state(node) in backpointer
     for state in range(len_tags):
-        viterbi[state][0] = transition_matrix[len_tags][state] * observation_matrix[word_id][state]
+        observation_value = observation_matrix[word_id][state] 
+        if observation_value == 0 and (not(unknown_prob is None)):
+            observation_value = unknown_prob[state]
+        viterbi[state][0] = transition_matrix[len_tags][state] * observation_value
         backpointer[state][0] = -1
 
     for t in range(1, T):
         word_id = sequence[t]
         for s in range(len_tags):
-            # viterbi without unknown prob
-            if unknown_prob is None:
-                temp = [viterbi[s_][t-1]*transition_matrix[s_][s]*observation_matrix[word_id][s] for s_ in range(len_tags)]
-            # viterbi with unknown prob
-            else:
-                observation_value = observation_matrix[word_id][s] 
-                if observation_value == 0:
-                    observation_value = unknown_prob[s]
-                temp = [viterbi[s_][t-1]*transition_matrix[s_][s]*observation_value for s_ in range(len_tags)]
-                
+            observation_value = observation_matrix[word_id][s] 
+            if observation_value == 0 and (not(unknown_prob is None)):
+                observation_value = unknown_prob[s]
+            
+            temp = [viterbi[s_][t-1]*transition_matrix[s_][s]*observation_value for s_ in range(len_tags)]
+     
             temp2 = [viterbi[s_][t-1]*transition_matrix[s_][s] for s_ in range(len_tags)]
 
             index, value = max(enumerate(temp2), key=operator.itemgetter(1))
