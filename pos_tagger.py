@@ -66,7 +66,7 @@ def convert_id(pre_sentence_list, tags,words):
 
     
 
-def create_matrices(pre_sentence, len_tags,len_words):
+def create_matrices(pre_sentence, len_tags, len_words, apply_smoothing=True):
     # gets the number of count for tag-tag pair 
     transition_matrix = np.zeros((len_tags, len_tags))
     # gets the number of count for word-tag pair
@@ -103,19 +103,20 @@ def create_matrices(pre_sentence, len_tags,len_words):
     
     count_observation = observation_matrix.copy()
     count_transition = transition_matrix.copy()
+    if apply_smoothing:
+        smoothed_count_observation = [[(element + 1) for element in vector] for vector in count_observation]
+        smoothed_count_transition = [[(element + 1) for element in vector] for vector in count_transition]
 
-    smoothed_count_observation = [[(element + 1) for element in vector] for vector in count_observation]
-    smoothed_count_transition = [[(element + 1) for element in vector] for vector in count_transition]
-
-    # convert probability matrix
+    # convert probability matrix  
+    if apply_smoothing:
+        smoothed_observation_matrix = smoothed_count_observation / np.sum(smoothed_count_observation, axis=0)
+        smoothed_transition_matrix = smoothed_count_transition / np.sum(smoothed_count_transition, axis=1).reshape((len_tags+1, 1))
+        return smoothed_transition_matrix, smoothed_observation_matrix, count_observation, count_transition
+    
     observation_matrix = observation_matrix / np.sum(observation_matrix, axis=0)
     transition_matrix = transition_matrix / np.sum(transition_matrix, axis=1).reshape((len_tags+1, 1))
 
-    smoothed_observation_matrix = smoothed_count_observation / np.sum(smoothed_count_observation, axis=0)
-    smoothed_transition_matrix = smoothed_count_transition / np.sum(smoothed_count_transition, axis=1).reshape((len_tags+1, 1))
-
-    # return transition_matrix, observation_matrix, count_observation, count_transition
-    return smoothed_transition_matrix, smoothed_observation_matrix, count_observation, count_transition
+    return transition_matrix, observation_matrix, count_observation, count_transition
 
 def generate_unknown_prob(observation_matrix, len_tags):
     # her tagde kac word var
