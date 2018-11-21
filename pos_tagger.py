@@ -4,6 +4,7 @@ import re
 from collections import defaultdict
 import operator
 from sklearn.model_selection import train_test_split
+from sklearn.model_selection import KFold
 
 
 input_file = 'Project (Application 1) (MetuSabanci Treebank).conll'
@@ -232,26 +233,41 @@ def get_viterbi_test(X_test, len_tags, transition_matrix, observation_matrix, pr
     
     sentence_result = sentence_compare/count
     word_result = word_compare/total_word
-    print("Sentence comparison: ", sentence_compare, "->", count, "%", sentence_result)
-    print("Word comparison: ", word_compare, "->", total_word, "%", word_result)
+    # print("Sentence comparison: ", sentence_compare, "->", count, "%", sentence_result)
+    # print("Word comparison: ", word_compare, "->", total_word, "%", word_result)
     return sentence_result, word_result
 
 
 
 def get_evaluation(pre_sentence, len_tags, len_words):
-    avg_sentence = 0
-    avg_word = 0
+    total_sentence = 0
+    total_word = 0
     count = 10
     for i in range(count):
-        X_train, X_test = train_test_split(pre_sentence, test_size=0.1, shuffle = True)
-        transition_matrix, observation_matrix, count_observation,count_transition = create_matrices(X_train, len_tags, len_words)
-        prob_unknown =  generate_unknown_prob(count_observation,len_tags)
-        sentence_result, word_result = get_viterbi_test(X_test, len_tags, transition_matrix, observation_matrix, prob_unknown)
-        avg_sentence = avg_sentence + sentence_result
-        avg_word = avg_word + word_result
-    
-    print("Sentence result: ", (100/count)*avg_sentence)
-    print("Word result: ", (100/count)*avg_word)
+        # X_train, X_test = train_test_split(pre_sentence, test_size=0.1, shuffle = True)
+        total_sentence_fold = 0
+        total_word_fold = 0
+        split_count = 6
+        kf = KFold(n_splits = split_count, shuffle=True)
+        kf.get_n_splits(pre_sentence)
+        for train_index, test_index in kf.split(pre_sentence):
+            X_train, X_test = pre_sentence[train_index], pre_sentence[test_index]
+            transition_matrix, observation_matrix, count_observation, count_transition = create_matrices(X_train, len_tags, len_words)
+            prob_unknown =  generate_unknown_prob(count_observation,len_tags)
+            sentence_result, word_result = get_viterbi_test(X_test, len_tags, transition_matrix, observation_matrix, prob_unknown)
+            total_sentence_fold += sentence_result
+            total_word_fold += word_result
+        avg_sentence_fold = (total_sentence_fold / split_count)
+        avg_word_fold = (total_word_fold / split_count)
+        total_sentence += avg_sentence_fold
+        total_word += avg_word_fold
+        print("Batch " + str(i))
+        print("\tSentence result: ", 100 * avg_sentence_fold)
+        print("\tWord result: ", 100 * avg_word_fold)
+    average_sentence = (total_sentence / count)
+    average_word = (total_word / count)
+    print("Sentence result: ", 100 * average_sentence)
+    print("Word result: ", 100 * average_word)
     
     
 #%%    
@@ -262,4 +278,5 @@ tags, words = give_id(tag_list, word_list)
 pre_sentence = convert_id(pre_sentence_list, tags, words)
 len_tags = len(tags)
 len_words = len(words)
+pre_sentence = np.array(pre_sentence)
 get_evaluation(pre_sentence, len_tags, len_words)
