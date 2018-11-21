@@ -16,7 +16,7 @@ def get_original_sentences(input_file):
         if  line.strip() :
             sentence = re.split(r'\t+', line)
             if "_" not in sentence[1]: 
-                temp_sentence.append([sentence[1],sentence[3]])
+                temp_sentence.append([sentence[1], sentence[3]])
         else:
             sentence_list.append(temp_sentence)
             temp_sentence = []
@@ -33,13 +33,13 @@ def preprocessing(sentence_list):
     for sentence in sentence_list:
         temp_list = []
         for word in sentence:
-            temp_list.append([word[0].lower(),word[1]])
+            temp_list.append([word[0].lower(), word[1]])
             tag_list[word[1]] = 1
             word_list[word[0].lower()] = 1
         pre_sentence_list.append(temp_list)
-    return pre_sentence_list,tag_list,word_list
+    return pre_sentence_list, tag_list, word_list
 
-def give_id(tag_list,word_list):
+def give_id(tag_list, word_list):
     tags = defaultdict()
     words = defaultdict()
     count = 0
@@ -50,9 +50,9 @@ def give_id(tag_list,word_list):
     for word in word_list:
         words[word] = count
         count = count + 1
-    return tags,words
+    return tags, words
 
-def convert_id(pre_sentence_list,tags,words):
+def convert_id(pre_sentence_list, tags,words):
     pre_sentence = []
  
     for sentence in pre_sentence_list:
@@ -60,17 +60,17 @@ def convert_id(pre_sentence_list,tags,words):
         for word_tag_pair in sentence:
             word_id = words[word_tag_pair[0]]
             tag_id = tags[word_tag_pair[1]]
-            temp.append([word_id,tag_id])
+            temp.append([word_id, tag_id])
         pre_sentence.append(temp)
     return pre_sentence
 
     
 
-def create_matrices(pre_sentence,len_tags,len_words):
+def create_matrices(pre_sentence, len_tags,len_words):
     # gets the number of count for tag-tag pair 
-    transition_matrix = np.zeros((len_tags,len_tags))
+    transition_matrix = np.zeros((len_tags, len_tags))
     # gets the number of count for word-tag pair
-    observation_matrix = np.zeros((len_words,len_tags))
+    observation_matrix = np.zeros((len_words, len_tags))
 
     for sentence in pre_sentence:
         for word_tag_pair in sentence:
@@ -89,8 +89,8 @@ def create_matrices(pre_sentence,len_tags,len_words):
 
     
     #add start and end node in transition matrix
-    temp1 = np.zeros((1,len_tags))
-    temp2 = np.zeros((len_tags+1,1))
+    temp1 = np.zeros((1, len_tags))
+    temp2 = np.zeros((len_tags+1, 1))
     for sentence in pre_sentence:
         first_tag_id = sentence[0][1]
         last_tag_id = sentence[-1][1]
@@ -103,15 +103,21 @@ def create_matrices(pre_sentence,len_tags,len_words):
     
     count_observation = observation_matrix.copy()
     count_transition = transition_matrix.copy()
+
+    smoothed_count_observation = [[(element + 1) for element in vector] for vector in count_observation]
+    smoothed_count_transition = [[(element + 1) for element in vector] for vector in count_transition]
+
     # convert probability matrix
     observation_matrix = observation_matrix / np.sum(observation_matrix, axis=0)
-    transition_matrix = transition_matrix / np.sum(transition_matrix, axis=1).reshape((len_tags+1,1))
+    transition_matrix = transition_matrix / np.sum(transition_matrix, axis=1).reshape((len_tags+1, 1))
 
-            
-    return transition_matrix,observation_matrix,count_observation,count_transition
+    smoothed_observation_matrix = smoothed_count_observation / np.sum(smoothed_count_observation, axis=0)
+    smoothed_transition_matrix = smoothed_count_transition / np.sum(smoothed_count_transition, axis=1).reshape((len_tags+1, 1))
 
+    # return transition_matrix, observation_matrix, count_observation, count_transition
+    return smoothed_transition_matrix, smoothed_observation_matrix, count_observation, count_transition
 
-def generate_unknown_prob(observation_matrix,len_tags):
+def generate_unknown_prob(observation_matrix, len_tags):
     # her tagde kac word var
     tag_sum  = np.sum(observation_matrix, axis=0)        
     temp = np.sum(observation_matrix, axis=1)
@@ -122,8 +128,7 @@ def generate_unknown_prob(observation_matrix,len_tags):
     for word in singletons:
         index  = list(observation_matrix[word]).index(1)
         singletons_tags[index] = singletons_tags[index] + 1
-        
-        
+
     prob_unknown = (1/num_singletons)*(singletons_tags/tag_sum)
 
     return prob_unknown        
@@ -132,12 +137,12 @@ def generate_unknown_prob(observation_matrix,len_tags):
     
 # viterbi is used for only test sequence
 # sequence consists of id of the word in the sentence    
-def viterbi_algorithm(sequence,len_tags,transition_matrix,observation_matrix):
+def viterbi_algorithm(sequence, len_tags, transition_matrix, observation_matrix, unknown_prob=None):
     T  = len(sequence) # number of word in sequence
     word_id = sequence[0] # word_id  = id of the first word
     
-    viterbi = np.zeros((len_tags+2,T+1))
-    backpointer = np.zeros((len_tags+2,T+1), dtype=np.int)
+    viterbi = np.zeros((len_tags+2, T+1))
+    backpointer = np.zeros((len_tags+2, T+1), dtype=np.int)
     
     # start state is full
     # -1 means the start state(node) in backpointer
@@ -145,10 +150,19 @@ def viterbi_algorithm(sequence,len_tags,transition_matrix,observation_matrix):
         viterbi[state][0] = transition_matrix[len_tags][state] * observation_matrix[word_id][state]
         backpointer[state][0] = -1
 
-    for t in range(1,T):
+    for t in range(1, T):
         word_id = sequence[t]
         for s in range(len_tags):
-            temp = [viterbi[s_][t-1]*transition_matrix[s_][s]*observation_matrix[word_id][s] for s_ in range(len_tags)]
+            # viterbi without unknown prob
+            if unknown_prob is None:
+                temp = [viterbi[s_][t-1]*transition_matrix[s_][s]*observation_matrix[word_id][s] for s_ in range(len_tags)]
+            # viterbi with unknown prob
+            else:
+                observation_value = observation_matrix[word_id][s] 
+                if observation_value == 0:
+                    observation_value = unknown_prob[s]
+                temp = [viterbi[s_][t-1]*transition_matrix[s_][s]*observation_value for s_ in range(len_tags)]
+                
             temp2 = [viterbi[s_][t-1]*transition_matrix[s_][s] for s_ in range(len_tags)]
 
             index, value = max(enumerate(temp2), key=operator.itemgetter(1))
@@ -162,48 +176,9 @@ def viterbi_algorithm(sequence,len_tags,transition_matrix,observation_matrix):
     viterbi[len_tags+1][T] = value
     backpointer[len_tags+1][T] = index
 
-    return viterbi , backpointer
+    return viterbi, backpointer
 
-
-def viterbi_algorithm_with_unknown_prob(sequence,len_tags,transition_matrix,observation_matrix,unknown_prob):
-    T  = len(sequence) # number of word in sequence
-    word_id = sequence[0] # word_id  = id of the first word
-    
-    viterbi = np.zeros((len_tags+2,T+1))
-    backpointer = np.zeros((len_tags+2,T+1), dtype=np.int)
-    
-    # start state is full
-    # -1 means the start state(node) in backpointer
-    for state in range(len_tags):
-        viterbi[state][0] = transition_matrix[len_tags][state] * observation_matrix[word_id][state]
-        backpointer[state][0] = -1
-
-    for t in range(1,T):
-        word_id = sequence[t]
-        for s in range(len_tags):
-            observation_value = observation_matrix[word_id][s] 
-            if observation_value == 0:
-                observation_value = unknown_prob[s]
-            
-            temp = [viterbi[s_][t-1]*transition_matrix[s_][s]*observation_value for s_ in range(len_tags)]
-            temp2 = [viterbi[s_][t-1]*transition_matrix[s_][s] for s_ in range(len_tags)]
-
-            index, value = max(enumerate(temp2), key=operator.itemgetter(1))
-            viterbi[s][t] = max(temp)
-            backpointer[s][t] = index
-        
-    temp = [viterbi[s_][T-1]*transition_matrix[s_][len_tags] for s_ in range(len_tags)]
-    index, value = max(enumerate(temp), key=operator.itemgetter(1))        
-
-    # len_tag+1 means the end node of the graph
-    viterbi[len_tags+1][T] = value
-    backpointer[len_tags+1][T] = index
-
-    return viterbi , backpointer
-
-
-
-def get_POS_tags (backpointer,sequence,len_tags):
+def get_POS_tags (backpointer, sequence, len_tags):
     T = len(sequence)
     last_node_id = backpointer[len_tags+1][T]
     POS_tags = [last_node_id]
@@ -227,10 +202,10 @@ def test_preparation(X_test):
             
         sentences.append(words)
         sentences_tags.append(tags)
-    return sentences,sentences_tags
+    return sentences, sentences_tags
             
 
-def get_viterbi_test(X_test,len_tags,transition_matrix,observation_matrix,prob_unknown):
+def get_viterbi_test(X_test, len_tags, transition_matrix, observation_matrix, prob_unknown):
     
     X_sentences, X_tags = test_preparation(X_test)
     sentence_compare = 0
@@ -239,9 +214,8 @@ def get_viterbi_test(X_test,len_tags,transition_matrix,observation_matrix,prob_u
     count = 0 
     total_word = 0
     for sequence in X_sentences:
-        #viterbi , backpointer =  viterbi_algorithm(sequence,len_tags,transition_matrix,observation_matrix)
-        viterbi , backpointer = viterbi_algorithm_with_unknown_prob(sequence,len_tags,transition_matrix,observation_matrix,prob_unknown)        
-        POS_tags = get_POS_tags (backpointer,sequence,len_tags)
+        viterbi, backpointer =  viterbi_algorithm(sequence, len_tags, transition_matrix, observation_matrix, prob_unknown)
+        POS_tags = get_POS_tags(backpointer, sequence, len_tags)
         final_tag = POS_tags[1:]
         result_tags.append(final_tag)
         
@@ -257,34 +231,34 @@ def get_viterbi_test(X_test,len_tags,transition_matrix,observation_matrix,prob_u
     
     sentence_result = sentence_compare/count
     word_result = word_compare/total_word
-    print("Sentence comparison: ",sentence_compare,"->",count,"%",sentence_result)
-    print("Word comparison: ",word_compare,"->",total_word,"%",word_result)
-    return sentence_result,word_result
+    print("Sentence comparison: ", sentence_compare, "->", count, "%", sentence_result)
+    print("Word comparison: ", word_compare, "->", total_word, "%", word_result)
+    return sentence_result, word_result
 
 
 
-def get_evaluation(pre_sentence,len_tags,len_words):
+def get_evaluation(pre_sentence, len_tags, len_words):
     avg_sentence = 0
     avg_word = 0
     count = 10
     for i in range(count):
         X_train, X_test = train_test_split(pre_sentence, test_size=0.1, shuffle = True)
-        transition_matrix,observation_matrix,count_observation,count_transition = create_matrices(X_train,len_tags,len_words)
+        transition_matrix, observation_matrix, count_observation,count_transition = create_matrices(X_train, len_tags, len_words)
         prob_unknown =  generate_unknown_prob(count_observation,len_tags)
-        sentence_result,word_result = get_viterbi_test(X_test,len_tags,transition_matrix,observation_matrix,prob_unknown)
+        sentence_result, word_result = get_viterbi_test(X_test, len_tags, transition_matrix, observation_matrix, prob_unknown)
         avg_sentence = avg_sentence + sentence_result
         avg_word = avg_word + word_result
     
-    print("Sentence result: ",(100/count)*avg_sentence)
-    print("Word result: ",(100/count)*avg_word)
+    print("Sentence result: ", (100/count)*avg_sentence)
+    print("Word result: ", (100/count)*avg_word)
     
     
 #%%    
 
 sentence_list = get_original_sentences(input_file)
-pre_sentence_list,tag_list,word_list = preprocessing(sentence_list)
-tags, words = give_id(tag_list,word_list)
-pre_sentence = convert_id(pre_sentence_list,tags,words)
+pre_sentence_list, tag_list, word_list = preprocessing(sentence_list)
+tags, words = give_id(tag_list, word_list)
+pre_sentence = convert_id(pre_sentence_list, tags, words)
 len_tags = len(tags)
 len_words = len(words)
-get_evaluation(pre_sentence,len_tags,len_words)
+get_evaluation(pre_sentence, len_tags, len_words)
