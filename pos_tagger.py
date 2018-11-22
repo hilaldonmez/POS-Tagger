@@ -25,7 +25,8 @@ def get_original_sentences(input_file):
     return sentence_list
 
 
-# convert only lower case ? 
+# convert only lower case 
+# remove single quote and the suffixes after single quote from words     
 def preprocessing(sentence_list):
     tag_list = defaultdict()
     word_list = defaultdict()
@@ -34,9 +35,14 @@ def preprocessing(sentence_list):
     for sentence in sentence_list:
         temp_list = []
         for word in sentence:
-            temp_list.append([word[0].lower(), word[1]])
+            real_word = word[0].lower()
+            vocabulary = re.findall(r"(\w+)'", real_word)
+            if vocabulary:
+                real_word = vocabulary[0]
+                
+            temp_list.append([real_word, word[1]])
             tag_list[word[1]] = 1
-            word_list[word[0].lower()] = 1
+            word_list[real_word] = 1
         pre_sentence_list.append(temp_list)
     return pre_sentence_list, tag_list, word_list
 
@@ -117,12 +123,12 @@ def create_matrices(pre_sentence, len_tags, len_words, apply_smoothing=True):
     return transition_matrix, observation_matrix, count_observation, count_transition
 
 def generate_unknown_prob(observation_matrix, len_tags):
-    # her tagde kac word var
+    # the number of token for each tag
     tag_sum  = np.sum(observation_matrix, axis=0)        
     temp = np.sum(observation_matrix, axis=1)
-    singletons = [i for i in range(len(temp)) if temp[i]==1] # train datadaki singleton wordlerin idleri
+    singletons = [i for i in range(len(temp)) if temp[i]==1] # id of  singleton tokens in the training set
     num_singletons = len(singletons)
-    singletons_tags = np.zeros((len_tags)) # her tagdeki singleton sayısı
+    singletons_tags = np.zeros((len_tags)) # the number of singleton for each tag
     
     for word in singletons:
         index  = list(observation_matrix[word]).index(1)
@@ -276,3 +282,7 @@ len_tags = len(tags)
 len_words = len(words)
 pre_sentence = np.array(pre_sentence)
 get_evaluation(pre_sentence, len_tags, len_words)
+
+
+
+
