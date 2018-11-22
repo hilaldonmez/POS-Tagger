@@ -21,7 +21,6 @@ def get_original_sentences(input_file):
         
     return sentence_list
 
-
 # convert only lower case 
 # remove single quote and the suffixes after single quote from words     
 def apply_preprocessing(sentence_list):
@@ -89,8 +88,6 @@ def create_matrices(pre_sentence, len_tags, len_words, apply_smoothing=True):
             current_id = word_tag_pair[1]
             transition_matrix[previous_id][current_id] = transition_matrix[previous_id][current_id] + 1
             previous_id = current_id
-
-
     
     #add start and end node in transition matrix
     temp1 = np.zeros((1, len_tags))
@@ -134,9 +131,7 @@ def generate_unknown_prob(observation_matrix, len_tags):
     prob_unknown = (1/num_singletons)*(singletons_tags/tag_sum)
 
     return prob_unknown        
-
-
-    
+ 
 # viterbi is used for only test sequence
 # sequence consists of id of the word in the sentence    
 def viterbi_algorithm(sequence, len_tags, transition_matrix, observation_matrix, unknown_prob=None):
@@ -191,20 +186,6 @@ def get_POS_tags (backpointer, sequence, len_tags):
     
     return POS_tags[::-1]
 
-# def test_preparation(X_test):
-#     sentences = []
-#     sentences_tags = []
-#     for sentence in X_test:
-#         words = []
-#         tags = []
-#         for pair in sentence:
-#             words.append(pair[0])
-#             tags.append(pair[1])
-            
-#         sentences.append(words)
-#         sentences_tags.append(tags)
-#     return sentences, sentences_tags
-
 def read_file():
     sentence_list = get_original_sentences(input_file)
     pre_sentence_list, tag_list, word_list = apply_preprocessing(sentence_list)
@@ -214,73 +195,3 @@ def read_file():
     len_words = len(words)
     pre_sentence = np.array(pre_sentence)
     return words, tags, len_tags, len_words, pre_sentence
-
-
-# def get_viterbi_test(X_test, len_tags, transition_matrix, observation_matrix, prob_unknown):
-    
-#     X_sentences, X_tags = test_preparation(X_test)
-#     sentence_compare = 0
-#     word_compare = 0 
-#     result_tags = []
-#     count = 0 
-#     total_word = 0
-#     for sequence in X_sentences:
-#         viterbi, backpointer =  viterbi_algorithm(sequence, len_tags, transition_matrix, observation_matrix, prob_unknown)
-#         POS_tags = get_POS_tags(backpointer, sequence, len_tags)
-#         final_tag = POS_tags[1:]
-#         result_tags.append(final_tag)
-        
-#         if X_tags[count] == final_tag:
-#             sentence_compare = sentence_compare + 1
-            
-#         for i in range(len(X_tags[count])):
-#             total_word = total_word + 1
-#             if X_tags[count][i] == final_tag[i]:
-#                 word_compare = word_compare + 1
-       
-#         count = count + 1    
-    
-#     sentence_result = sentence_compare/count
-#     word_result = word_compare/total_word
-#     # print("Sentence comparison: ", sentence_compare, "->", count, "%", sentence_result)
-#     # print("Word comparison: ", word_compare, "->", total_word, "%", word_result)
-#     return sentence_result, word_result
-
-
-
-# def get_evaluation(pre_sentence, len_tags, len_words):
-#     total_sentence = 0
-#     total_word = 0
-#     for i in range(BATCH_COUNT):
-#         # X_train, X_test = train_test_split(pre_sentence, test_size=0.1, shuffle = True)
-#         total_sentence_fold = 0
-#         total_word_fold = 0
-#         kf = KFold(n_splits = CROSS_VAL_BATCH_COUNT, shuffle=True)
-#         kf.get_n_splits(pre_sentence)
-#         for train_index, test_index in kf.split(pre_sentence):
-#             X_train, X_test = pre_sentence[train_index], pre_sentence[test_index]
-#             transition_matrix, observation_matrix, count_observation, count_transition = create_matrices(X_train, len_tags, len_words)
-#             prob_unknown =  generate_unknown_prob(count_observation,len_tags)
-#             sentence_result, word_result = get_viterbi_test(X_test, len_tags, transition_matrix, observation_matrix, prob_unknown)
-#             total_sentence_fold += sentence_result
-#             total_word_fold += word_result
-#         avg_sentence_fold = (total_sentence_fold / CROSS_VAL_BATCH_COUNT)
-#         avg_word_fold = (total_word_fold / CROSS_VAL_BATCH_COUNT)
-#         total_sentence += avg_sentence_fold
-#         total_word += avg_word_fold
-#         print("Batch " + str(i + 1))
-#         print("\tSentence result: ", 100 * avg_sentence_fold)
-#         print("\tWord result: ", 100 * avg_word_fold)
-#     average_sentence = (total_sentence / BATCH_COUNT)
-#     average_word = (total_word / BATCH_COUNT)
-#     print("Sentence result: ", 100 * average_sentence)
-#     print("Word result: ", 100 * average_word)
-    
-    
-#%%    
-
-
-
-
-
-
