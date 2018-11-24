@@ -116,6 +116,22 @@ def create_matrices(pre_sentence, len_tags, len_words, apply_smoothing=True):
     
     return transition_matrix, observation_matrix, count_observation, count_transition
 
+def get_unknown_prob_verb(observation_matrix, len_tags, unknown_prob, tags, words, next_word_id):
+    verb_index = tags['Verb']
+    point_id1 = words["."]
+    point_id2 = words["!"]
+    point_id3 = words["?"]
+    point_id4 = words[".."]
+    point_id5 = words["..."]
+       
+    observation_value = 0
+    if next_word_id == point_id1 or next_word_id == point_id2 or next_word_id == point_id3 or next_word_id == point_id4 or next_word_id == point_id5:
+        observation_value = unknown_prob[verb_index]
+    return observation_value
+
+
+
+
 def generate_unknown_prob(observation_matrix, len_tags):
     # the number of token for each tag
     tag_sum  = np.sum(observation_matrix, axis=0)        
@@ -134,13 +150,13 @@ def generate_unknown_prob(observation_matrix, len_tags):
  
 # viterbi is used for only test sequence
 # sequence consists of id of the word in the sentence    
-def viterbi_algorithm(sequence, len_tags, transition_matrix, observation_matrix, unknown_prob=None):
+def viterbi_algorithm(sequence, len_tags, transition_matrix, observation_matrix, tags, words, unknown_prob=None, morp_analysis = True):
     T  = len(sequence) # number of word in sequence
     word_id = sequence[0] # word_id  = id of the first word
     
     viterbi = np.zeros((len_tags+2, T+1))
     backpointer = np.zeros((len_tags+2, T+1), dtype=np.int)
-    
+    verb_index = tags['Verb']
     # start state is full
     # -1 means the start state(node) in backpointer
     for state in range(len_tags):
@@ -154,8 +170,13 @@ def viterbi_algorithm(sequence, len_tags, transition_matrix, observation_matrix,
         word_id = sequence[t]
         for s in range(len_tags):
             observation_value = observation_matrix[word_id][s] 
-            if observation_value == 0 and (not(unknown_prob is None)):
-                observation_value = unknown_prob[s]
+            if observation_value == 0 and (not(unknown_prob is None)) :
+                if morp_analysis  and t+1 == T-1 and s == verb_index:
+                    next_word_id = sequence[t+1] 
+                    observation_value = get_unknown_prob_verb(observation_matrix,len_tags,unknown_prob,tags,words,next_word_id)
+                    
+                else:    
+                    observation_value = unknown_prob[s]
             
             temp = [viterbi[s_][t-1]*transition_matrix[s_][s]*observation_value for s_ in range(len_tags)]
      
