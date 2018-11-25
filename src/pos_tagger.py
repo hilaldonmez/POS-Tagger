@@ -6,15 +6,18 @@ import operator
 
 input_file = 'Project (Application 1) (MetuSabanci Treebank).conll'
 
-def get_original_sentences(input_file):
+def get_original_sentences(input_file, Stemmer = True):
     file = open(input_file, 'r')
     sentence_list = []
     temp_sentence = []
+    index = 1
+    if Stemmer:
+        index = 2
     for line in file:
         if  line.strip() :
             sentence = re.split(r'\t+', line)
-            if "_" not in sentence[1]: 
-                temp_sentence.append([sentence[1], sentence[3]])
+            if "_" not in sentence[index]: 
+                temp_sentence.append([sentence[index], sentence[3]])
         else:
             sentence_list.append(temp_sentence)
             temp_sentence = []
@@ -150,13 +153,17 @@ def generate_unknown_prob(observation_matrix, len_tags):
  
 # viterbi is used for only test sequence
 # sequence consists of id of the word in the sentence    
-def viterbi_algorithm(sequence, len_tags, transition_matrix, observation_matrix, tags, words, unknown_prob=None, morp_analysis = True):
+def viterbi_algorithm(sequence, len_tags, transition_matrix, observation_matrix, tags, words, unknown_prob=None, morp_analysis = False):
     T  = len(sequence) # number of word in sequence
     word_id = sequence[0] # word_id  = id of the first word
     
     viterbi = np.zeros((len_tags+2, T+1))
     backpointer = np.zeros((len_tags+2, T+1), dtype=np.int)
     verb_index = tags['Verb']
+    
+    if morp_analysis:
+        unknown_prob = generate_unknown_prob(observation_matrix, len_tags)
+    
     # start state is full
     # -1 means the start state(node) in backpointer
     for state in range(len_tags):
@@ -170,14 +177,13 @@ def viterbi_algorithm(sequence, len_tags, transition_matrix, observation_matrix,
         word_id = sequence[t]
         for s in range(len_tags):
             observation_value = observation_matrix[word_id][s] 
-            if observation_value == 0 and (not(unknown_prob is None)) :
-                if morp_analysis  and t+1 == T-1 and s == verb_index:
-                    next_word_id = sequence[t+1] 
-                    observation_value = get_unknown_prob_verb(observation_matrix,len_tags,unknown_prob,tags,words,next_word_id)
+            if observation_value == 0 and morp_analysis  and t+1 == T-1 and s == verb_index:
+                next_word_id = sequence[t+1] 
+                observation_value = get_unknown_prob_verb(observation_matrix,len_tags,unknown_prob,tags,words,next_word_id)
+            elif observation_value == 0 and (not(unknown_prob is None)) :
+                observation_value = unknown_prob[s]
                     
-                else:    
-                    observation_value = unknown_prob[s]
-            
+                
             temp = [viterbi[s_][t-1]*transition_matrix[s_][s]*observation_value for s_ in range(len_tags)]
      
             temp2 = [viterbi[s_][t-1]*transition_matrix[s_][s] for s_ in range(len_tags)]
@@ -216,3 +222,5 @@ def read_file():
     len_words = len(words)
     pre_sentence = np.array(pre_sentence)
     return words, tags, len_tags, len_words, pre_sentence
+
+    
