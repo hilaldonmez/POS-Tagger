@@ -119,7 +119,22 @@ def create_matrices(pre_sentence, len_tags, len_words, apply_smoothing=True):
     
     return transition_matrix, observation_matrix, count_observation, count_transition
 
-def get_unknown_prob_verb(observation_matrix, len_tags, unknown_prob, tags, words, next_word_id):
+def get_unknown_prob_verb(count_observation, len_tags, tags, words, next_word_id , verb_index):
+    tag_sum  = np.sum(count_observation, axis=0)    
+    word_verb = tag_sum[verb_index]     
+    temp = np.sum(count_observation, axis=1)
+    singletons = [i for i in range(len(temp)) if temp[i]==1] # id of  singleton tokens in the training set
+    num_singletons = len(singletons)
+    singletons_tags = 0 # the number of singleton for verb tag
+    
+    
+    for word in singletons:
+        index  = list(count_observation[word]).index(1)
+        if index == verb_index:
+            singletons_tags = singletons_tags + 1
+    unknown_prob = (1/num_singletons)*(singletons_tags/word_verb)
+    
+    
     verb_index = tags['Verb']
     point_id1 = words["."]
     point_id2 = words["!"]
@@ -129,13 +144,14 @@ def get_unknown_prob_verb(observation_matrix, len_tags, unknown_prob, tags, word
        
     observation_value = 0
     if next_word_id == point_id1 or next_word_id == point_id2 or next_word_id == point_id3 or next_word_id == point_id4 or next_word_id == point_id5:
-        observation_value = unknown_prob[verb_index]
+        observation_value = unknown_prob
     return observation_value
 
 
 
 
-def generate_unknown_prob(observation_matrix, len_tags):
+
+def generate_unknown_prob_hapax(observation_matrix, len_tags):
     # the number of token for each tag
     tag_sum  = np.sum(observation_matrix, axis=0)        
     temp = np.sum(observation_matrix, axis=1)
@@ -153,7 +169,7 @@ def generate_unknown_prob(observation_matrix, len_tags):
  
 # viterbi is used for only test sequence
 # sequence consists of id of the word in the sentence    
-def viterbi_algorithm(sequence, len_tags, transition_matrix, observation_matrix, tags, words, unknown_prob=None, morp_analysis = False):
+def viterbi_algorithm(sequence, len_tags, transition_matrix, observation_matrix, count_observation, tags, words, unknown_prob=None, morp_analysis = False):
     T  = len(sequence) # number of word in sequence
     word_id = sequence[0] # word_id  = id of the first word
     
@@ -161,8 +177,6 @@ def viterbi_algorithm(sequence, len_tags, transition_matrix, observation_matrix,
     backpointer = np.zeros((len_tags+2, T+1), dtype=np.int)
     verb_index = tags['Verb']
     
-    if morp_analysis:
-        unknown_prob = generate_unknown_prob(observation_matrix, len_tags)
     
     # start state is full
     # -1 means the start state(node) in backpointer
@@ -179,7 +193,7 @@ def viterbi_algorithm(sequence, len_tags, transition_matrix, observation_matrix,
             observation_value = observation_matrix[word_id][s] 
             if observation_value == 0 and morp_analysis  and t+1 == T-1 and s == verb_index:
                 next_word_id = sequence[t+1] 
-                observation_value = get_unknown_prob_verb(observation_matrix,len_tags,unknown_prob,tags,words,next_word_id)
+                observation_value = get_unknown_prob_verb(count_observation, len_tags, tags, words ,next_word_id, verb_index)
             elif observation_value == 0 and (not(unknown_prob is None)) :
                 observation_value = unknown_prob[s]
                     

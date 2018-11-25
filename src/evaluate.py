@@ -17,7 +17,7 @@ def test_preparation(X_test):
         sentences_tags.append(tags)
     return sentences, sentences_tags
 
-def get_viterbi_test(X_test, len_tags, transition_matrix, observation_matrix, tags, words ,prob_unknown):
+def get_viterbi_test(X_test, len_tags, transition_matrix, observation_matrix, count_observation, tags, words ,prob_unknown, morp_analysis ):
     X_sentences, X_tags = test_preparation(X_test)
     sentence_compare = 0
     word_compare = 0 
@@ -25,7 +25,7 @@ def get_viterbi_test(X_test, len_tags, transition_matrix, observation_matrix, ta
     count = 0 
     total_word = 0
     for sequence in X_sentences:
-        viterbi, backpointer = pos_tagger.viterbi_algorithm(sequence, len_tags, transition_matrix, observation_matrix, tags, words ,prob_unknown)
+        viterbi, backpointer = pos_tagger.viterbi_algorithm(sequence, len_tags, transition_matrix, observation_matrix, count_observation, tags, words ,prob_unknown, morp_analysis )
         POS_tags = pos_tagger.get_POS_tags(backpointer, sequence, len_tags)
         final_tag = POS_tags[1:]
         result_tags.append(final_tag)
@@ -58,8 +58,8 @@ def get_evaluation(pre_sentence, tags, words, len_tags, len_words):
         for train_index, test_index in kf.split(pre_sentence):
             X_train, X_test = pre_sentence[train_index], pre_sentence[test_index]
             transition_matrix, observation_matrix, count_observation, count_transition = pos_tagger.create_matrices(X_train, len_tags, len_words)
-            prob_unknown =  pos_tagger.generate_unknown_prob(count_observation,len_tags)
-            sentence_result, word_result = get_viterbi_test(X_test, len_tags, transition_matrix, observation_matrix, tags, words, prob_unknown)
+            prob_unknown =  pos_tagger.generate_unknown_prob_hapax(count_observation,len_tags)
+            sentence_result, word_result = get_viterbi_test(X_test, len_tags, transition_matrix, observation_matrix, count_observation, tags, words, prob_unknown, False)
             total_sentence_fold += sentence_result
             total_word_fold += word_result
         avg_sentence_fold = (total_sentence_fold / CROSS_VAL_BATCH_COUNT)
