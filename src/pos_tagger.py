@@ -60,7 +60,7 @@ def give_id(tag_list, word_list):
         count = count + 1
     return tags, words
 
-def convert_id(pre_sentence_list, tags,words):
+def convert_id(pre_sentence_list, tags, words):
     pre_sentence = []
  
     for sentence in pre_sentence_list:
@@ -119,7 +119,7 @@ def create_matrices(pre_sentence, len_tags, len_words, apply_smoothing=True):
     
     return transition_matrix, observation_matrix, count_observation, count_transition
 
-def get_unknown_prob_verb(count_observation, len_tags, tags, words, next_word_id , verb_index):
+def get_unknown_prob_verb(count_observation, len_tags, tags, words, next_word_id, verb_index):
     tag_sum  = np.sum(count_observation, axis=0)    
     word_verb = tag_sum[verb_index]     
     temp = np.sum(count_observation, axis=1)
@@ -127,13 +127,11 @@ def get_unknown_prob_verb(count_observation, len_tags, tags, words, next_word_id
     num_singletons = len(singletons)
     singletons_tags = 0 # the number of singleton for verb tag
     
-    
     for word in singletons:
         index  = list(count_observation[word]).index(1)
         if index == verb_index:
             singletons_tags = singletons_tags + 1
     unknown_prob = (1/num_singletons)*(singletons_tags/word_verb)
-    
     
     verb_index = tags['Verb']
     point_id1 = words["."]
@@ -146,10 +144,6 @@ def get_unknown_prob_verb(count_observation, len_tags, tags, words, next_word_id
     if next_word_id == point_id1 or next_word_id == point_id2 or next_word_id == point_id3 or next_word_id == point_id4 or next_word_id == point_id5:
         observation_value = unknown_prob
     return observation_value
-
-
-
-
 
 def generate_unknown_prob_hapax(observation_matrix, len_tags):
     # the number of token for each tag
@@ -193,8 +187,8 @@ def viterbi_algorithm(sequence, len_tags, transition_matrix, observation_matrix,
             observation_value = observation_matrix[word_id][s] 
             if observation_value == 0 and morp_analysis  and t+1 == T-1 and s == verb_index:
                 next_word_id = sequence[t+1] 
-                observation_value = get_unknown_prob_verb(count_observation, len_tags, tags, words ,next_word_id, verb_index)
-            elif observation_value == 0 and (not(unknown_prob is None)) :
+                observation_value = get_unknown_prob_verb(count_observation, len_tags, tags, words, next_word_id, verb_index)
+            elif observation_value == 0 and (not(unknown_prob is None)):
                 observation_value = unknown_prob[s]
                     
                 
@@ -227,8 +221,8 @@ def get_POS_tags (backpointer, sequence, len_tags):
     
     return POS_tags[::-1]
 
-def read_file():
-    sentence_list = get_original_sentences(input_file)
+def read_file(use_stemmer=True):
+    sentence_list = get_original_sentences(input_file, use_stemmer)
     pre_sentence_list, tag_list, word_list = apply_preprocessing(sentence_list)
     tags, words = give_id(tag_list, word_list)
     pre_sentence = convert_id(pre_sentence_list, tags, words)

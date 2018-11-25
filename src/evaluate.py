@@ -2,6 +2,7 @@ import sys
 import pos_tagger
 import warnings
 from sklearn.model_selection import KFold
+import time
 
 def test_preparation(X_test):
     sentences = []
@@ -17,7 +18,7 @@ def test_preparation(X_test):
         sentences_tags.append(tags)
     return sentences, sentences_tags
 
-def get_viterbi_test(X_test, len_tags, transition_matrix, observation_matrix, count_observation, tags, words ,prob_unknown, morp_analysis ):
+def get_viterbi_test(X_test, len_tags, transition_matrix, observation_matrix, count_observation, tags, words, prob_unknown, morp_analysis):
     X_sentences, X_tags = test_preparation(X_test)
     sentence_compare = 0
     word_compare = 0 
@@ -25,7 +26,7 @@ def get_viterbi_test(X_test, len_tags, transition_matrix, observation_matrix, co
     count = 0 
     total_word = 0
     for sequence in X_sentences:
-        viterbi, backpointer = pos_tagger.viterbi_algorithm(sequence, len_tags, transition_matrix, observation_matrix, count_observation, tags, words ,prob_unknown, morp_analysis )
+        viterbi, backpointer = pos_tagger.viterbi_algorithm(sequence, len_tags, transition_matrix, observation_matrix, count_observation, tags, words,prob_unknown, morp_analysis )
         POS_tags = pos_tagger.get_POS_tags(backpointer, sequence, len_tags)
         final_tag = POS_tags[1:]
         result_tags.append(final_tag)
@@ -46,10 +47,11 @@ def get_viterbi_test(X_test, len_tags, transition_matrix, observation_matrix, co
     # print("Word comparison: ", word_compare, "->", total_word, "%", word_result)
     return sentence_result, word_result
 
-def get_evaluation(pre_sentence, tags, words, len_tags, len_words):
+def get_evaluation(pre_sentence, tags, words, len_tags, len_words, morphological_analysis=False):
     total_sentence = 0
     total_word = 0
     for i in range(BATCH_COUNT):
+        begin = time.time()
         # X_train, X_test = train_test_split(pre_sentence, test_size=0.1, shuffle = True)
         total_sentence_fold = 0
         total_word_fold = 0
@@ -59,16 +61,18 @@ def get_evaluation(pre_sentence, tags, words, len_tags, len_words):
             X_train, X_test = pre_sentence[train_index], pre_sentence[test_index]
             transition_matrix, observation_matrix, count_observation, count_transition = pos_tagger.create_matrices(X_train, len_tags, len_words)
             prob_unknown =  pos_tagger.generate_unknown_prob_hapax(count_observation,len_tags)
-            sentence_result, word_result = get_viterbi_test(X_test, len_tags, transition_matrix, observation_matrix, count_observation, tags, words, prob_unknown, False)
+            sentence_result, word_result = get_viterbi_test(X_test, len_tags, transition_matrix, observation_matrix, count_observation, tags, words, prob_unknown, morphological_analysis)
             total_sentence_fold += sentence_result
             total_word_fold += word_result
         avg_sentence_fold = (total_sentence_fold / CROSS_VAL_BATCH_COUNT)
         avg_word_fold = (total_word_fold / CROSS_VAL_BATCH_COUNT)
         total_sentence += avg_sentence_fold
         total_word += avg_word_fold
+        end = time.time()
         print("Batch " + str(i + 1))
         print("\tSentence result: ", 100 * avg_sentence_fold)
         print("\tWord result: ", 100 * avg_word_fold)
+        print("\tBatch finish time: " + str(round(end-begin, 3)) + " sec")
     average_sentence = (total_sentence / BATCH_COUNT)
     average_word = (total_word / BATCH_COUNT)
     print("Sentence result: ", 100 * average_sentence)
@@ -78,6 +82,8 @@ warnings.filterwarnings("ignore")
 
 BATCH_COUNT = 10
 CROSS_VAL_BATCH_COUNT = 6
+APPLY_MORPHOLOGICAL_ANALYSIS = False
+APPLY_STEMMER = False
 
 arguments = sys.argv
 for index, arg in enumerate(arguments):
@@ -87,9 +93,17 @@ for index, arg in enumerate(arguments):
     elif arg == "-cross-val-batch":
         if (index < len(arguments) - 1) and arguments[index + 1].isdigit():
             CROSS_VAL_BATCH_COUNT = int(arguments[index + 1])
+    elif arg == "-morph":
+        APPLY_MORPHOLOGICAL_ANALYSIS = True
+    elif arg == "-stem":
+        APPLY_STEMMER = True
 
 print("Batch count: " + str(BATCH_COUNT))
 print("Batch count for cross validation: " + str(CROSS_VAL_BATCH_COUNT))
+if APPLY_MORPHOLOGICAL_ANALYSIS:
+    print("Applying morphological analysis")
+if APPLY_STEMMER:
+    print("Applying stemming")
 
-word_list, tag_list, len_tags, len_words, pre_sentence = pos_tagger.read_file()
-get_evaluation(pre_sentence, tag_list , word_list, len_tags, len_words)
+word_list, tag_list, len_tags, len_words, pre_sentence = pos_tagger.read_file(APPLY_STEMMER)
+get_evaluation(pre_sentence, tag_list , word_list, len_tags, len_words, APPLY_MORPHOLOGICAL_ANALYSIS)

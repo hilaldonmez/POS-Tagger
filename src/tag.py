@@ -13,9 +13,10 @@ def preprocess_input(input_sentence):
 	tokens = [pos_tagger.preprocess(word) for word in tokens]
 	return tokens	
 
-def get_tag(pre_sentence, len_tags):
+def get_tag(pre_sentence, tags, words):
 	sentence = ""
 	words = word_list
+	len_tags = len(tags)
 	while True:
 		sentence = input("Enter a sentence (or \'-exit\' to exit program): ")
 		if sentence == '-exit':
@@ -29,8 +30,8 @@ def get_tag(pre_sentence, len_tags):
 				words[token] = count
 			sequence.append(words[token])
 		transition_matrix, observation_matrix, count_observation, count_transition = pos_tagger.create_matrices(pre_sentence, len_tags, len(words))
-		prob_unknown = pos_tagger.generate_unknown_prob(count_observation, len_tags)
-		viterbi, backpointer = pos_tagger.viterbi_algorithm(sequence, len_tags, transition_matrix, observation_matrix, prob_unknown)
+		prob_unknown = pos_tagger.generate_unknown_prob_hapax(count_observation, len_tags)
+		viterbi, backpointer = pos_tagger.viterbi_algorithm(sequence, len_tags, transition_matrix, observation_matrix, count_observation, tags, words, prob_unknown)
 		POS_tags = pos_tagger.get_POS_tags(backpointer, sequence, len_tags)
 		final_tag = POS_tags[1:]
 		for tag in final_tag:
@@ -39,8 +40,10 @@ def get_tag(pre_sentence, len_tags):
 
 warnings.filterwarnings("ignore")
 
+APPLY_STEMMER = False
+
 tag_list = defaultdict()
-word_list, tags, len_tags, len_words, pre_sentence = pos_tagger.read_file()
+word_list, tags, len_tags, len_words, pre_sentence = pos_tagger.read_file(APPLY_STEMMER)
 for key, value in tags.items():
 	tag_list[value] = key
-get_tag(pre_sentence, len_tags)
+get_tag(pre_sentence, tags, word_list)
