@@ -43,8 +43,6 @@ def get_viterbi_test(X_test, len_tags, transition_matrix, observation_matrix, co
     
     sentence_result = sentence_compare/count
     word_result = word_compare/total_word
-    # print("Sentence comparison: ", sentence_compare, "->", count, "%", sentence_result)
-    # print("Word comparison: ", word_compare, "->", total_word, "%", word_result)
     return sentence_result, word_result
 
 def get_evaluation(pre_sentence, tags, words, len_tags, len_words, morphological_analysis=False):
@@ -52,7 +50,6 @@ def get_evaluation(pre_sentence, tags, words, len_tags, len_words, morphological
     total_word = 0
     for i in range(BATCH_COUNT):
         begin = time.time()
-        # X_train, X_test = train_test_split(pre_sentence, test_size=0.1, shuffle = True)
         total_sentence_fold = 0
         total_word_fold = 0
         kf = KFold(n_splits = CROSS_VAL_BATCH_COUNT, shuffle=True)
